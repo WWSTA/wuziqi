@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>五子棋 AI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .container {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+    
+    h1 {
+      color: white;
+      margin: 10px 0 15px 0;
+      font-size: 24px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .mode-select {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .mode-btn {
+      padding: 10px 25px;
+      font-size: 16px;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.3);
+      color: white;
+      transition: all 0.3s;
+      backdrop-filter: blur(5px);
+    }
+    
+    .mode-btn:hover {
+      background: rgba(255,255,255,0.5);
+      transform: scale(1.05);
+    }
+    
+    .mode-btn.active {
+      background: white;
+      color: #667eea;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .game-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(255,255,255,0.95);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      max-width: 100%;
+    }
+    
+    .board-container {
+      position: relative;
+      margin: 10px 0;
+    }
+    
+    .board {
+      display: flex;
+      flex-direction: column;
+      background-image: url('bg.jpg');
+      background-size: cover;
+      border: 3px solid #8B4513;
+      border-radius: 5px;
+    }
+    
+    .board-row {
+      display: flex;
+    }
+    
+    .cell {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .cell:hover {
+      background: rgba(0,0,0,0.1);
+    }
+    
+    .cell::before,
+    .cell::after {
+      content: "";
+      position: absolute;
+      background: #5D4E37;
+    }
+    
+    .cell::before {
+      left: 50%;
+      height: 100%;
+      width: 1px;
+    }
+    
+    .cell::after {
+      top: 50%;
+      width: 100%;
+      height: 1px;
+    }
+    
+    .cell.top::before { top: 50%; }
+    .cell.bottom::before { bottom: 50%; }
+    .cell.left::after { left: 50%; }
+    .cell.right::after { right: 50%; }
+    
+    .cell.star-point::before {
+      width: 8px;
+      height: 8px;
+      background: #5D4E37;
+      border-radius: 50%;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    
+    .piece {
+      width: 80%;
+      height: 80%;
+      border-radius: 50%;
+      position: relative;
+      z-index: 10;
+      font-size: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+    }
+    
+    .piece.black {
+      background: radial-gradient(circle at 30% 30%, #666, #000);
+      color: white;
+    }
+    
+    .piece.white {
+      background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+      color: #333;
+      border: 1px solid #aaa;
+    }
+    
+    .last-move {
+      width: 30%;
+      height: 30%;
+      border: 2px solid #ff6b6b;
+      z-index: 20;
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      z-index: 999;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      left: 0;
+      top: 0;
+      border-radius: 5px;
+    }
+    
+    .loading-text {
+      font-size: 18px;
+      color: white;
+      background: rgba(0,0,0,0.8);
+      padding: 15px 30px;
+      border-radius: 10px;
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    .game-info {
+      text-align: center;
+      margin: 15px 0;
+      padding: 15px 25px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border-radius: 15px;
+      font-size: 18px;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 450px;
+    }
+    
+    .game-info.winner {
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      font-size: 20px;
+      font-weight: bold;
+      animation: bounce 0.5s;
+    }
+    
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      font-size: 15px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+    }
+    
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+    }
+    
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+    
+    .btn-green {
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      box-shadow: 0 4px 15px rgba(17,153,142,0.4);
+    }
+    
+    .btn-green:hover:not(:disabled) {
+      box-shadow: 0 6px 20px rgba(17,153,142,0.6);
+    }
+    
+    .btn-red {
+      background: linear-gradient(135deg, #eb3349, #f45c43);
+      box-shadow: 0 4px 15px rgba(235,51,73,0.4);
+    }
+    
+    .btn-red:hover:not(:disabled) {
+      box-shadow: 0 6px 20px rgba(235,51,73,0.6);
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      box-shadow: 0 4px 15px rgba(102,166,255,0.4);
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      box-shadow: 0 6px 20px rgba(102,166,255,0.6);
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .modal.show {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(-50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+      color: #333;
+      font-size: 22px;
+    }
+    
+    .close-btn {
+      font-size: 28px;
+      font-weight: bold;
+      color: #999;
+      cursor: pointer;
+      line-height: 1;
+      transition: color 0.3s;
+    }
+    
+    .close-btn:hover {
+      color: #333;
+    }
+    
+    .setting-group {
+      margin-bottom: 25px;
+    }
+    
+    .setting-group label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #333;
+      font-size: 16px;
+    }
+    
+    .setting-group select {
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      background: #f9f9f9;
+      transition: border-color 0.3s;
+    }
+    
+    .setting-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .setting-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 10px 0;
+    }
+    
+    .checkbox-label:hover {
+      color: #667eea;
+    }
+    
+    .modal-footer {
+      margin-top: 25px;
+      padding-top: 20px;
+      border-top: 2px solid #f0f0f0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    
+    .debug-content {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #333;
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .debug-item {
+      margin: 8px 0;
+      padding: 8px;
+      background: white;
+      border-radius: 5px;
+      border-left: 3px solid #667eea;
+    }
+    
+    .debug-label {
+      font-weight: bold;
+      color: #667eea;
+    }
+    
+    .footer {
+      margin-top: 20px;
+      color: white;
+      opacity: 0.8;
+      font-size: 14px;
+      text-align: center;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 500px) {
+      h1 {
+        font-size: 20px;
+        margin: 5px 0 10px 0;
+      }
+      
+      .mode-btn {
+        padding: 8px 20px;
+        font-size: 14px;
+      }
+      
+      .game-wrapper {
+        padding: 15px;
+      }
+      
+      .game-info {
+        font-size: 16px;
+        padding: 12px 20px;
+      }
+      
+      .game-info.winner {
+        font-size: 18px;
+      }
+      
+      .btn {
+        padding: 10px 18px;
+        font-size: 14px;
+      }
+      
+      .controls {
+        gap: 8px;
+      }
+      
+      .modal-content {
+        padding: 20px;
+      }
+    }
+    
+    @media (max-width: 360px) {
+      .container {
+        padding: 5px;
+      }
+      
+      .mode-select {
+        gap: 5px;
+      }
+      
+      .mode-btn {
+        padding: 6px 15px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 五子棋 AI</h1>
+    
+    <div class="mode-select">
+      <button class="mode-btn active" data-mode="pvp-ai" onclick="selectMode('pvp-ai')">🤖 人机对战</button>
+      <button class="mode-btn" data-mode="ai-vs-ai" onclick="selectMode('ai-vs-ai')">👀 AI 互博</button>
+    </div>
+    
+    <div class="game-wrapper">
+      <div class="board-container">
+        <div id="board" class="board"></div>
+      </div>
+      
+      <div id="game-info" class="game-info">选择模式并点击开始游戏</div>
+      
+      <div class="controls">
+        <button id="btn-start" class="btn" onclick="handleStart()">▶️ 开始游戏</button>
+        <button id="btn-stop" class="btn btn-red" onclick="handleStop()" style="display:none;">⏹️ 停止</button>
+        <button id="btn-undo" class="btn btn-secondary" onclick="handleUndo()" disabled>↩️ 悔棋</button>
+        <button id="btn-end" class="btn btn-red" onclick="handleEnd()" disabled>🏳️ 认输</button>
+        <button id="btn-settings" class="btn btn-secondary" onclick="openSettings()">⚙️ 设置</button>
+        <button id="btn-debug" class="btn btn-secondary" onclick="openDebug()">🔧 调试</button>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>由 liuhongxun945/gobang 改编</p>
+    </div>
+  </div>
+  
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚙️ 游戏设置</h2>
+        <span class="close-btn" onclick="closeSettings()">&times;</span>
+      </div>
+      
+      <div class="setting-group">
+        <label for="setting-depth">AI 难度</label>
+        <select id="setting-depth">
+          <option value="2">🧠 弱智 (2层) - 超快</option>
+          <option value="4" selected>😊 简单 (4层) - 快</option>
+          <option value="6">🤔 普通 (6层) - 较慢</option>
+          <option value="8">💪 困难 (8层) - 超慢</option>
+        </select>
+      </div>
+      
+      <div class="setting-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-ai-first">
+          <span>AI 先手执黑棋</span>
+        </label>
+      </div>
+      
+      <div class="setting-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-show-index">
+          <span>显示落子序号</span>
+        </label>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
+        <button class="btn" onclick="saveSettings()">保存设置</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 调试弹窗 -->
+  <div id="debug-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🔧 调试信息</h2>
+        <span class="close-btn" onclick="closeDebug()">&times;</span>
+      </div>
+      
+      <div class="debug-content" id="debug-content">
+        <div class="debug-item">
+          <span class="debug-label">游戏状态:</span> <span id="debug-status">未开始</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">当前玩家:</span> <span id="debug-player">-</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">当前步数:</span> <span id="debug-moves">0</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">AI 评分:</span> <span id="debug-score">0</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">搜索深度:</span> <span id="debug-path-length">0</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">思考路径:</span> <span id="debug-path">-</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">历史记录:</span> <span id="debug-history">-</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">缓存命中:</span> <span id="debug-cache-hits">-</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">形状统计:</span> <span id="debug-shapes">-</span>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn" onclick="closeDebug()">关闭</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="gobang-ai.js"></script>
+  <script>
+    const BOARD_SIZE = 15;
+    const STAR_POINTS = [
+      [3, 3], [3, 7], [3, 11],
+      [7, 3], [7, 7], [7, 11],
+      [11, 3], [11, 7], [11, 11]
+    ];
+    
+    let currentMode = 'pvp-ai';
+    let cellSize = 30;
+    
+    function initBoard() {
+      const container = document.querySelector('.game-wrapper');
+      const maxWidth = Math.min(window.innerWidth - 60, 450);
+      cellSize = Math.floor(maxWidth / BOARD_SIZE);
+      
+      const board = document.getElementById('board');
+      board.style.width = cellSize * BOARD_SIZE + 'px';
+      board.style.height = cellSize * BOARD_SIZE + 'px';
+      
+      renderBoard();
+    }
+    
+    function isStarPoint(x, y) {
+      return STAR_POINTS.some(p => p[0] === x && p[1] === y);
+    }
+    
+    function renderBoard() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      
+      for (let i = 0; i < BOARD_SIZE; i++) {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'board-row';
+        
+        for (let j = 0; j < BOARD_SIZE; j++) {
+          const cellEl = document.createElement('div');
+          let cellClass = 'cell';
+          
+          if (i === 0) cellClass += ' top';
+          if (i === BOARD_SIZE - 1) cellClass += ' bottom';
+          if (j === 0) cellClass += ' left';
+          if (j === BOARD_SIZE - 1) cellClass += ' right';
+          if (isStarPoint(i, j)) cellClass += ' star-point';
+          
+          cellEl.className = cellClass;
+          cellEl.style.width = cellSize + 'px';
+          cellEl.style.height = cellSize + 'px';
+          cellEl.onclick = () => playerMove(i, j);
+          
+          if (gameBoard) {
+            const cellValue = gameBoard.board[i][j];
+            if (cellValue !== 0) {
+              const pieceEl = document.createElement('div');
+              pieceEl.className = 'piece ' + (cellValue === 1 ? 'black' : 'white');
+              
+              if (gameState.showIndex) {
+                for (let k = 0; k < gameState.history.length; k++) {
+                  if (gameState.history[k].x === i && gameState.history[k].y === j) {
+                    pieceEl.textContent = k + 1;
+                    break;
+                  }
+                }
+              }
+              
+              cellEl.appendChild(pieceEl);
+              
+              if (gameState.history.length > 0) {
+                const lastMove = gameState.history[gameState.history.length - 1];
+                if (lastMove.x === i && lastMove.y === j) {
+                  const lastEl = document.createElement('div');
+                  lastEl.className = 'last-move';
+                  cellEl.appendChild(lastEl);
+                }
+              }
+            }
+          }
+          
+          rowEl.appendChild(cellEl);
+        }
+        
+        boardEl.appendChild(rowEl);
+      }
+      
+      if (gameState.loading) {
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'loading';
+        loadingEl.innerHTML = '<div class="loading-text">AI 思考中...</div>';
+        boardEl.appendChild(loadingEl);
+      }
+      
+      updateGameInfo();
+      updateControls();
+      updateDebugInfo();
+    }
+    
+    function updateGameInfo() {
+      const infoEl = document.getElementById('game-info');
+      
+      if (gameState.winner) {
+        infoEl.className = 'game-info winner';
+        const winnerText = gameState.winner === 1 ? '⚫ 黑棋' : '⚪ 白棋';
+        infoEl.textContent = `🎉 ${winnerText} 获胜！`;
+      } else if (gameState.status === STATUS.GAMING) {
+        infoEl.className = 'game-info';
+        if (gameState.aiVsAi) {
+          infoEl.textContent = '🤖 AI 互博进行中...';
+        } else {
+          const playerText = gameState.currentPlayer === 1 ? '⚫ 黑棋' : '⚪ 白棋';
+          infoEl.textContent = `${playerText} 的回合`;
+        }
+      } else {
+        infoEl.className = 'game-info';
+        if (currentMode === 'pvp-ai') {
+          infoEl.textContent = '点击"开始游戏"开始对战';
+        } else {
+          infoEl.textContent = '点击"开始游戏"观看 AI 互博';
+        }
+      }
+    }
+    
+    function updateControls() {
+      const isPvpAi = currentMode === 'pvp-ai';
+      const isGaming = gameState.status === STATUS.GAMING;
+      const isAiVsAi = gameState.aiVsAi;
+      const hasHistory = gameState.history.length >= 2;
+      
+      const btnStart = document.getElementById('btn-start');
+      const btnStop = document.getElementById('btn-stop');
+      const btnUndo = document.getElementById('btn-undo');
+      const btnEnd = document.getElementById('btn-end');
+      
+      btnStart.textContent = isPvpAi ? '▶️ 开始游戏' : '▶️ 开始 AI 互博';
+      btnStart.style.display = isAiVsAi ? 'none' : 'inline-block';
+      btnStart.disabled = gameState.loading || isGaming;
+      
+      btnStop.style.display = isAiVsAi ? 'inline-block' : 'none';
+      
+      if (isPvpAi) {
+        btnUndo.style.display = 'inline-block';
+        btnUndo.disabled = gameState.loading || !isGaming || !hasHistory;
+        
+        btnEnd.style.display = 'inline-block';
+        btnEnd.disabled = gameState.loading || !isGaming;
+      } else {
+        btnUndo.style.display = 'none';
+        btnEnd.style.display = 'none';
+      }
+    }
+    
+    function updateDebugInfo() {
+      document.getElementById('debug-status').textContent = 
+        gameState.status === STATUS.GAMING ? '游戏中' : '空闲';
+      document.getElementById('debug-player').textContent = 
+        gameState.currentPlayer === 1 ? '黑棋' : (gameState.currentPlayer === -1 ? '白棋' : '-');
+      document.getElementById('debug-moves').textContent = gameState.history.length;
+      document.getElementById('debug-score').textContent = gameState.score;
+      document.getElementById('debug-path-length').textContent = gameState.path?.length || 0;
+      document.getElementById('debug-path').textContent = 
+        gameState.path?.length > 0 ? JSON.stringify(gameState.path) : '-';
+      document.getElementById('debug-history').textContent = 
+        gameState.history.length > 0 ? JSON.stringify(gameState.history.map(h => [h.x, h.y])) : '-';
+      document.getElementById('debug-cache-hits').textContent = 
+        `搜索: ${cache_hits.search}, 命中: ${cache_hits.hit}, 总计: ${cache_hits.total}`;
+      document.getElementById('debug-shapes').textContent = 
+        `五连:${shapePerformance.five} 四连:${shapePerformance.four} 四连(堵):${shapePerformance.blockFour} 三连:${shapePerformance.three} 三连(堵):${shapePerformance.blockThree} 两连:${shapePerformance.two}`;
+    }
+    
+    function selectMode(mode) {
+      if (gameState.status === STATUS.GAMING && !confirm('切换模式将结束当前游戏，确定吗？')) {
+        return;
+      }
+      
+      stopAiVsAi();
+      gameState.status = STATUS.IDLE;
+      currentMode = mode;
+      
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      
+      renderBoard();
+    }
+    
+    function handleStart() {
+      if (currentMode === 'pvp-ai') {
+        startGame();
+      } else {
+        startAiVsAi();
+      }
+    }
+    
+    function handleStop() {
+      stopAiVsAi();
+    }
+    
+    function handleUndo() {
+      undoMove();
+    }
+    
+    function handleEnd() {
+      if (confirm('确定要认输吗？')) {
+        gameState.winner = gameState.currentPlayer === 1 ? -1 : 1;
+        gameState.status = STATUS.IDLE;
+        renderBoard();
+      }
+    }
+    
+    function openSettings() {
+      document.getElementById('setting-depth').value = gameState.depth;
+      document.getElementById('setting-ai-first').checked = gameState.aiFirst;
+      document.getElementById('setting-show-index').checked = gameState.showIndex;
+      document.getElementById('settings-modal').classList.add('show');
+    }
+    
+    function closeSettings() {
+      document.getElementById('settings-modal').classList.remove('show');
+    }
+    
+    function saveSettings() {
+      gameState.depth = Number(document.getElementById('setting-depth').value);
+      gameState.aiFirst = document.getElementById('setting-ai-first').checked;
+      gameState.showIndex = document.getElementById('setting-show-index').checked;
+      closeSettings();
+      renderBoard();
+    }
+    
+    function openDebug() {
+      updateDebugInfo();
+      document.getElementById('debug-modal').classList.add('show');
+    }
+    
+    function closeDebug() {
+      document.getElementById('debug-modal').classList.remove('show');
+    }
+    
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('show');
+        }
+      });
+    });
+    
+    window.addEventListener('resize', () => {
+      initBoard();
+    });
+    
+    window.onload = () => {
+      gameState.aiFirst = false;
+      initBoard();
+    };
+  </script>
+</body>
+</html>
