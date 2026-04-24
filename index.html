@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>五子棋 AI</title>
+  <title>弈秋 - 五子棋</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap');
+    
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
@@ -14,63 +16,197 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'ZCOOL XiaoWei', 'Kaiti', '楷体', serif;
+      background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 50%, #d4c4a8 100%);
+      background-attachment: fixed;
+    }
+    
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(139, 90, 43, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(139, 90, 43, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
     }
     
     .container {
+      position: relative;
+      z-index: 1;
       min-height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px;
+      padding: 15px;
     }
     
     h1 {
-      color: white;
+      color: #5d3a1a;
       margin: 10px 0 15px 0;
-      font-size: 24px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      font-size: 36px;
+      font-family: 'Ma Shan Zheng', 'STXingkai', '华文行楷', cursive;
+      text-shadow: 2px 2px 4px rgba(93, 58, 26, 0.2);
+      letter-spacing: 8px;
+      border-bottom: 2px solid #8b5a2b;
+      padding-bottom: 10px;
     }
     
     .mode-select {
       display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
+      gap: 15px;
+      margin-bottom: 20px;
     }
     
     .mode-btn {
-      padding: 10px 25px;
-      font-size: 16px;
-      border: none;
-      border-radius: 25px;
+      padding: 12px 30px;
+      font-size: 18px;
+      font-family: 'ZCOOL XiaoWei', 'Kaiti', serif;
+      border: 2px solid #8b5a2b;
+      border-radius: 5px;
       cursor: pointer;
-      background: rgba(255,255,255,0.3);
-      color: white;
+      background: linear-gradient(180deg, #f9f3e8 0%, #e8d4b8 100%);
+      color: #5d3a1a;
       transition: all 0.3s;
-      backdrop-filter: blur(5px);
+      position: relative;
+      letter-spacing: 2px;
+    }
+    
+    .mode-btn::before,
+    .mode-btn::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border: 2px solid #8b5a2b;
+      transition: all 0.3s;
+    }
+    
+    .mode-btn::before {
+      top: -2px;
+      left: -2px;
+      border-right: none;
+      border-bottom: none;
+    }
+    
+    .mode-btn::after {
+      bottom: -2px;
+      right: -2px;
+      border-left: none;
+      border-top: none;
     }
     
     .mode-btn:hover {
-      background: rgba(255,255,255,0.5);
-      transform: scale(1.05);
+      background: linear-gradient(180deg, #fff9f0 0%, #f0dbb8 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(93, 58, 26, 0.2);
     }
     
     .mode-btn.active {
-      background: white;
-      color: #667eea;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      background: linear-gradient(180deg, #8b5a2b 0%, #5d3a1a 100%);
+      color: #f9f3e8;
+      border-color: #5d3a1a;
+    }
+    
+    .mode-btn.active::before,
+    .mode-btn.active::after {
+      border-color: #5d3a1a;
     }
     
     .game-wrapper {
       display: flex;
       flex-direction: column;
       align-items: center;
-      background: rgba(255,255,255,0.95);
-      border-radius: 20px;
-      padding: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      background: linear-gradient(180deg, #f5e6d3 0%, #e8d4b8 50%, #f5e6d3 100%);
+      border: 3px solid #8b5a2b;
+      border-radius: 8px;
+      padding: 25px;
+      box-shadow: 
+        0 0 0 2px #c9a86c,
+        0 10px 30px rgba(93, 58, 26, 0.3),
+        inset 0 0 20px rgba(139, 90, 43, 0.1);
       max-width: 100%;
+      position: relative;
+    }
+    
+    .game-wrapper::before,
+    .game-wrapper::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110%;
+      height: 20px;
+      background: linear-gradient(90deg, #8b5a2b 0%, #5d3a1a 50%, #8b5a2b 100%);
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .game-wrapper::before { top: -12px; }
+    .game-wrapper::after { bottom: -12px; }
+    
+    .progress-container {
+      width: 100%;
+      max-width: 450px;
+      margin-bottom: 15px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .progress-container.show { opacity: 1; }
+    
+    .progress-label {
+      text-align: center;
+      color: #5d3a1a;
+      font-size: 16px;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background: #d4c4a8;
+      border: 2px solid #8b5a2b;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #c9a86c 0%, #8b5a2b 50%, #c9a86c 100%);
+      background-size: 200% 100%;
+      animation: progressGlow 1.5s ease-in-out infinite;
+      border-radius: 8px;
+      transition: width 0.1s linear;
+    }
+    
+    @keyframes progressGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    
+    .progress-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #5d3a1a;
+      font-size: 12px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+    }
+    
+    .phase-indicator {
+      text-align: center;
+      font-size: 14px;
+      color: #8b5a2b;
+      margin-top: 5px;
     }
     
     .board-container {
@@ -83,13 +219,14 @@
       flex-direction: column;
       background-image: url('bg.jpg');
       background-size: cover;
-      border: 3px solid #8B4513;
+      border: 4px solid #5d3a1a;
       border-radius: 5px;
+      box-shadow: 
+        inset 0 0 20px rgba(93, 58, 26, 0.3),
+        0 5px 15px rgba(0, 0, 0, 0.3);
     }
     
-    .board-row {
-      display: flex;
-    }
+    .board-row { display: flex; }
     
     .cell {
       position: relative;
@@ -100,28 +237,17 @@
       transition: background 0.2s;
     }
     
-    .cell:hover {
-      background: rgba(0,0,0,0.1);
-    }
+    .cell:hover { background: rgba(139, 90, 43, 0.1); }
     
     .cell::before,
     .cell::after {
       content: "";
       position: absolute;
-      background: #5D4E37;
+      background: #3d2a1a;
     }
     
-    .cell::before {
-      left: 50%;
-      height: 100%;
-      width: 1px;
-    }
-    
-    .cell::after {
-      top: 50%;
-      width: 100%;
-      height: 1px;
-    }
+    .cell::before { left: 50%; height: 100%; width: 1px; }
+    .cell::after { top: 50%; width: 100%; height: 1px; }
     
     .cell.top::before { top: 50%; }
     .cell.bottom::before { bottom: 50%; }
@@ -129,18 +255,19 @@
     .cell.right::after { right: 50%; }
     
     .cell.star-point::before {
-      width: 8px;
-      height: 8px;
-      background: #5D4E37;
+      width: 10px;
+      height: 10px;
+      background: #3d2a1a;
       border-radius: 50%;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
     }
     
     .piece {
-      width: 80%;
-      height: 80%;
+      width: 78%;
+      height: 78%;
       border-radius: 50%;
       position: relative;
       z-index: 10;
@@ -148,65 +275,40 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+      box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.4);
     }
     
     .piece.black {
-      background: radial-gradient(circle at 30% 30%, #666, #000);
-      color: white;
+      background: radial-gradient(circle at 30% 30%, #555 0%, #222 50%, #000 100%);
+      color: #f0f0f0;
+      border: 1px solid #111;
     }
     
     .piece.white {
-      background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+      background: radial-gradient(circle at 30% 30%, #fff 0%, #eee 50%, #ccc 100%);
       color: #333;
       border: 1px solid #aaa;
     }
     
     .last-move {
-      width: 30%;
-      height: 30%;
-      border: 2px solid #ff6b6b;
+      width: 25%;
+      height: 25%;
+      border: 2px solid #d4af37;
       z-index: 20;
       position: absolute;
       border-radius: 50%;
       pointer-events: none;
-    }
-    
-    .loading {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: absolute;
-      z-index: 999;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      left: 0;
-      top: 0;
-      border-radius: 5px;
-    }
-    
-    .loading-text {
-      font-size: 18px;
-      color: white;
-      background: rgba(0,0,0,0.8);
-      padding: 15px 30px;
-      border-radius: 10px;
-      animation: pulse 1.5s infinite;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+      box-shadow: 0 0 5px rgba(212, 175, 55, 0.5);
     }
     
     .game-info {
       text-align: center;
       margin: 15px 0;
-      padding: 15px 25px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
-      border-radius: 15px;
+      padding: 15px 30px;
+      background: linear-gradient(180deg, #f9f3e8 0%, #e8d4b8 100%);
+      color: #5d3a1a;
+      border: 2px solid #8b5a2b;
+      border-radius: 5px;
       font-size: 18px;
       min-height: 60px;
       display: flex;
@@ -214,77 +316,116 @@
       justify-content: center;
       width: 100%;
       max-width: 450px;
+      letter-spacing: 2px;
+      position: relative;
     }
+    
+    .game-info::before,
+    .game-info::after {
+      content: '◆';
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #8b5a2b;
+      font-size: 14px;
+    }
+    
+    .game-info::before { left: 15px; }
+    .game-info::after { right: 15px; }
     
     .game-info.winner {
-      background: linear-gradient(135deg, #f093fb, #f5576c);
+      background: linear-gradient(180deg, #ffefd5 0%, #ffe4b5 100%);
+      border-color: #d4af37;
+      color: #8b4513;
       font-size: 20px;
       font-weight: bold;
-      animation: bounce 0.5s;
+      animation: winnerGlow 1s ease-in-out infinite;
     }
     
-    @keyframes bounce {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+    .game-info.winner::before,
+    .game-info.winner::after { color: #d4af37; }
+    
+    @keyframes winnerGlow {
+      0%, 100% { box-shadow: 0 0 10px rgba(212, 175, 55, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(212, 175, 55, 0.6); }
     }
+    
+    .resource-monitor {
+      width: 100%;
+      max-width: 450px;
+      margin-top: 10px;
+      padding: 10px 15px;
+      background: rgba(249, 243, 232, 0.8);
+      border: 1px solid #c9a86c;
+      border-radius: 5px;
+      display: none;
+      font-size: 14px;
+      color: #5d3a1a;
+    }
+    
+    .resource-monitor.show { display: block; }
+    
+    .resource-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    
+    .resource-label { font-weight: bold; }
     
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
       justify-content: center;
-      margin-top: 10px;
+      margin-top: 15px;
     }
     
     .btn {
-      padding: 12px 24px;
-      font-size: 15px;
-      border: none;
-      border-radius: 10px;
+      padding: 12px 28px;
+      font-size: 16px;
+      font-family: 'ZCOOL XiaoWei', 'Kaiti', serif;
+      border: 2px solid #8b5a2b;
+      border-radius: 5px;
       cursor: pointer;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
+      background: linear-gradient(180deg, #f9f3e8 0%, #e8d4b8 100%);
+      color: #5d3a1a;
       transition: all 0.3s;
-      box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+      letter-spacing: 2px;
+      position: relative;
     }
     
     .btn:hover:not(:disabled) {
+      background: linear-gradient(180deg, #fff9f0 0%, #f0dbb8 100%);
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+      box-shadow: 0 4px 12px rgba(93, 58, 26, 0.3);
     }
     
     .btn:disabled {
-      background: #ccc;
+      background: #d4c4a8;
+      color: #888;
       cursor: not-allowed;
-      box-shadow: none;
-      transform: none;
+      border-color: #aaa;
     }
     
-    .btn-green {
-      background: linear-gradient(135deg, #11998e, #38ef7d);
-      box-shadow: 0 4px 15px rgba(17,153,142,0.4);
+    .btn-primary {
+      background: linear-gradient(180deg, #8b5a2b 0%, #5d3a1a 100%);
+      color: #f9f3e8;
+      border-color: #5d3a1a;
     }
     
-    .btn-green:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(17,153,142,0.6);
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(180deg, #9d6a3b 0%, #6d4a2a 100%);
     }
     
-    .btn-red {
-      background: linear-gradient(135deg, #eb3349, #f45c43);
-      box-shadow: 0 4px 15px rgba(235,51,73,0.4);
+    .btn-danger {
+      background: linear-gradient(180deg, #a85a5a 0%, #7a3a3a 100%);
+      color: #f9f3e8;
+      border-color: #7a3a3a;
     }
     
-    .btn-red:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(235,51,73,0.6);
-    }
-    
-    .btn-secondary {
-      background: linear-gradient(135deg, #89f7fe, #66a6ff);
-      box-shadow: 0 4px 15px rgba(102,166,255,0.4);
-    }
-    
-    .btn-secondary:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(102,166,255,0.6);
+    .btn-danger:hover:not(:disabled) {
+      background: linear-gradient(180deg, #b86a6a 0%, #8a4a4a 100%);
     }
     
     .modal {
@@ -295,30 +436,53 @@
       top: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.5);
+      background: rgba(61, 42, 26, 0.7);
       justify-content: center;
       align-items: center;
       padding: 20px;
     }
     
-    .modal.show {
-      display: flex;
-    }
+    .modal.show { display: flex; }
     
     .modal-content {
-      background: white;
-      border-radius: 20px;
+      background: linear-gradient(180deg, #f5e6d3 0%, #e8d4b8 100%);
+      border: 3px solid #8b5a2b;
+      border-radius: 10px;
       padding: 30px;
       max-width: 500px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      animation: slideIn 0.3s ease;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      animation: modalSlideIn 0.3s ease;
+      position: relative;
     }
     
-    @keyframes slideIn {
-      from { transform: translateY(-50px); opacity: 0; }
+    .modal-content::before,
+    .modal-content::after {
+      content: '';
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border: 3px solid #8b5a2b;
+    }
+    
+    .modal-content::before {
+      top: 8px;
+      left: 8px;
+      border-right: none;
+      border-bottom: none;
+    }
+    
+    .modal-content::after {
+      bottom: 8px;
+      right: 8px;
+      border-left: none;
+      border-top: none;
+    }
+    
+    @keyframes modalSlideIn {
+      from { transform: translateY(-30px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
     
@@ -328,53 +492,59 @@
       align-items: center;
       margin-bottom: 25px;
       padding-bottom: 15px;
-      border-bottom: 2px solid #f0f0f0;
+      border-bottom: 2px solid #c9a86c;
     }
     
     .modal-header h2 {
       margin: 0;
-      color: #333;
-      font-size: 22px;
+      color: #5d3a1a;
+      font-size: 24px;
+      font-family: 'Ma Shan Zheng', 'STXingkai', cursive;
+      letter-spacing: 4px;
     }
     
     .close-btn {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: bold;
-      color: #999;
+      color: #8b5a2b;
       cursor: pointer;
       line-height: 1;
-      transition: color 0.3s;
+      transition: all 0.3s;
     }
     
     .close-btn:hover {
-      color: #333;
+      color: #5d3a1a;
+      transform: scale(1.2);
     }
     
-    .setting-group {
-      margin-bottom: 25px;
-    }
+    .setting-group { margin-bottom: 25px; }
     
     .setting-group label {
       display: block;
       margin-bottom: 10px;
-      font-weight: 600;
-      color: #333;
+      font-weight: bold;
+      color: #5d3a1a;
       font-size: 16px;
+      letter-spacing: 2px;
     }
     
     .setting-group select {
       width: 100%;
       padding: 12px 15px;
       font-size: 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      background: #f9f9f9;
-      transition: border-color 0.3s;
+      font-family: 'ZCOOL XiaoWei', 'Kaiti', serif;
+      border: 2px solid #8b5a2b;
+      border-radius: 5px;
+      background: #f9f3e8;
+      color: #5d3a1a;
+      transition: all 0.3s;
+      letter-spacing: 1px;
     }
     
     .setting-group select:focus {
       outline: none;
-      border-color: #667eea;
+      border-color: #c9a86c;
+      background: #fff9f0;
     }
     
     .setting-group input[type="checkbox"] {
@@ -382,6 +552,7 @@
       height: 20px;
       margin-right: 10px;
       cursor: pointer;
+      accent-color: #8b5a2b;
     }
     
     .checkbox-label {
@@ -389,184 +560,179 @@
       align-items: center;
       cursor: pointer;
       padding: 10px 0;
+      color: #5d3a1a;
+      letter-spacing: 1px;
     }
     
-    .checkbox-label:hover {
-      color: #667eea;
-    }
+    .checkbox-label:hover { color: #8b5a2b; }
     
     .modal-footer {
       margin-top: 25px;
       padding-top: 20px;
-      border-top: 2px solid #f0f0f0;
+      border-top: 2px solid #c9a86c;
       display: flex;
       justify-content: flex-end;
       gap: 10px;
     }
     
     .debug-content {
-      font-family: 'Monaco', 'Menlo', monospace;
+      font-family: 'Courier New', monospace;
       font-size: 13px;
       line-height: 1.8;
-      color: #333;
-      background: #f8f9fa;
+      color: #5d3a1a;
+      background: #f9f3e8;
       padding: 15px;
-      border-radius: 10px;
+      border: 1px solid #c9a86c;
+      border-radius: 5px;
       max-height: 400px;
       overflow-y: auto;
     }
     
     .debug-item {
       margin: 8px 0;
-      padding: 8px;
-      background: white;
-      border-radius: 5px;
-      border-left: 3px solid #667eea;
+      padding: 8px 12px;
+      background: #fff9f0;
+      border-radius: 3px;
+      border-left: 3px solid #8b5a2b;
     }
     
-    .debug-label {
-      font-weight: bold;
-      color: #667eea;
-    }
+    .debug-label { font-weight: bold; color: #5d3a1a; }
     
     .footer {
-      margin-top: 20px;
-      color: white;
-      opacity: 0.8;
+      margin-top: 30px;
+      color: #8b5a2b;
+      opacity: 0.7;
       font-size: 14px;
       text-align: center;
+      letter-spacing: 2px;
     }
     
-    /* 响应式设计 */
     @media (max-width: 500px) {
-      h1 {
-        font-size: 20px;
-        margin: 5px 0 10px 0;
-      }
-      
-      .mode-btn {
-        padding: 8px 20px;
-        font-size: 14px;
-      }
-      
-      .game-wrapper {
-        padding: 15px;
-      }
-      
-      .game-info {
-        font-size: 16px;
-        padding: 12px 20px;
-      }
-      
-      .game-info.winner {
-        font-size: 18px;
-      }
-      
-      .btn {
-        padding: 10px 18px;
-        font-size: 14px;
-      }
-      
-      .controls {
-        gap: 8px;
-      }
-      
-      .modal-content {
-        padding: 20px;
-      }
+      h1 { font-size: 28px; letter-spacing: 4px; }
+      .mode-btn { padding: 10px 22px; font-size: 16px; }
+      .game-wrapper { padding: 20px 15px; }
+      .game-info { font-size: 16px; padding: 12px 20px; }
+      .game-info.winner { font-size: 18px; }
+      .btn { padding: 10px 20px; font-size: 14px; }
+      .controls { gap: 8px; }
+      .modal-content { padding: 25px 20px; }
     }
     
     @media (max-width: 360px) {
-      .container {
-        padding: 5px;
-      }
-      
-      .mode-select {
-        gap: 5px;
-      }
-      
-      .mode-btn {
-        padding: 6px 15px;
-        font-size: 13px;
-      }
+      .container { padding: 10px 5px; }
+      .mode-select { gap: 8px; }
+      .mode-btn { padding: 8px 16px; font-size: 14px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎮 五子棋 AI</h1>
+    <h1>弈 秋</h1>
     
     <div class="mode-select">
-      <button class="mode-btn active" data-mode="pvp-ai" onclick="selectMode('pvp-ai')">🤖 人机对战</button>
-      <button class="mode-btn" data-mode="ai-vs-ai" onclick="selectMode('ai-vs-ai')">👀 AI 互博</button>
+      <button class="mode-btn active" data-mode="pvp-ai" onclick="selectMode('pvp-ai')">人 机 对 弈</button>
+      <button class="mode-btn" data-mode="ai-vs-ai" onclick="selectMode('ai-vs-ai')">AI 演 武</button>
     </div>
     
     <div class="game-wrapper">
+      <div id="progress-container" class="progress-container">
+        <div class="progress-label" id="progress-label">AI 深思熟虑中...</div>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+          <span id="progress-text" class="progress-text">0%</span>
+        </div>
+        <div class="phase-indicator" id="phase-indicator">阶段 1/4</div>
+      </div>
+      
       <div class="board-container">
         <div id="board" class="board"></div>
       </div>
       
-      <div id="game-info" class="game-info">选择模式并点击开始游戏</div>
+      <div id="game-info" class="game-info">请选择模式，点击开始对弈</div>
+      
+      <div id="resource-monitor" class="resource-monitor">
+        <div class="resource-row">
+          <span class="resource-label">思考时间:</span>
+          <span id="res-time">0ms</span>
+        </div>
+        <div class="resource-row">
+          <span class="resource-label">搜索节点:</span>
+          <span id="res-nodes">0</span>
+        </div>
+        <div class="resource-row">
+          <span class="resource-label">缓存命中:</span>
+          <span id="res-cache">0/0</span>
+        </div>
+        <div class="resource-row">
+          <span class="resource-label">内存占用:</span>
+          <span id="res-memory">--</span>
+        </div>
+      </div>
       
       <div class="controls">
-        <button id="btn-start" class="btn" onclick="handleStart()">▶️ 开始游戏</button>
-        <button id="btn-stop" class="btn btn-red" onclick="handleStop()" style="display:none;">⏹️ 停止</button>
-        <button id="btn-undo" class="btn btn-secondary" onclick="handleUndo()" disabled>↩️ 悔棋</button>
-        <button id="btn-end" class="btn btn-red" onclick="handleEnd()" disabled>🏳️ 认输</button>
-        <button id="btn-settings" class="btn btn-secondary" onclick="openSettings()">⚙️ 设置</button>
-        <button id="btn-debug" class="btn btn-secondary" onclick="openDebug()">🔧 调试</button>
+        <button id="btn-start" class="btn btn-primary" onclick="handleStart()">开 始</button>
+        <button id="btn-stop" class="btn btn-danger" onclick="handleStop()" style="display:none;">停 止</button>
+        <button id="btn-undo" class="btn" onclick="handleUndo()" disabled>悔 棋</button>
+        <button id="btn-end" class="btn btn-danger" onclick="handleEnd()" disabled>认 输</button>
+        <button id="btn-settings" class="btn" onclick="openSettings()">设 置</button>
+        <button id="btn-debug" class="btn" onclick="openDebug()">调 试</button>
       </div>
     </div>
     
     <div class="footer">
-      <p>由 liuhongxun945/gobang 改编</p>
+      <p>—— 棋逢对手，将遇良才 ——</p>
     </div>
   </div>
   
-  <!-- 设置弹窗 -->
   <div id="settings-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>⚙️ 游戏设置</h2>
+        <h2>游戏设置</h2>
         <span class="close-btn" onclick="closeSettings()">&times;</span>
       </div>
       
       <div class="setting-group">
-        <label for="setting-depth">AI 难度</label>
+        <label for="setting-depth">AI 棋力</label>
         <select id="setting-depth">
-          <option value="2">🧠 弱智 (2层) - 超快</option>
-          <option value="4" selected>😊 简单 (4层) - 快</option>
-          <option value="6">🤔 普通 (6层) - 较慢</option>
-          <option value="8">💪 困难 (8层) - 超慢</option>
+          <option value="2">初学乍练 (2层) - 瞬息之间</option>
+          <option value="4" selected>略通皮毛 (4层) - 片刻之间</option>
+          <option value="6">融会贯通 (6层) - 稍作思索</option>
+          <option value="8">深不可测 (8层) - 深思熟虑</option>
         </select>
       </div>
       
       <div class="setting-group">
         <label class="checkbox-label">
           <input type="checkbox" id="setting-ai-first">
-          <span>AI 先手执黑棋</span>
+          <span>AI 执黑先行</span>
         </label>
       </div>
       
       <div class="setting-group">
         <label class="checkbox-label">
           <input type="checkbox" id="setting-show-index">
-          <span>显示落子序号</span>
+          <span>显示落子次序</span>
+        </label>
+      </div>
+      
+      <div class="setting-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-show-resource">
+          <span>显示资源监控</span>
         </label>
       </div>
       
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
-        <button class="btn" onclick="saveSettings()">保存设置</button>
+        <button class="btn" onclick="closeSettings()">取 消</button>
+        <button class="btn btn-primary" onclick="saveSettings()">确 定</button>
       </div>
     </div>
   </div>
   
-  <!-- 调试弹窗 -->
   <div id="debug-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>🔧 调试信息</h2>
+        <h2>调试信息</h2>
         <span class="close-btn" onclick="closeDebug()">&times;</span>
       </div>
       
@@ -601,7 +767,7 @@
       </div>
       
       <div class="modal-footer">
-        <button class="btn" onclick="closeDebug()">关闭</button>
+        <button class="btn btn-primary" onclick="closeDebug()">关 闭</button>
       </div>
     </div>
   </div>
@@ -617,9 +783,217 @@
     
     let currentMode = 'pvp-ai';
     let cellSize = 30;
+    let thinkStartTime = 0;
+    let aiWorker = null;
+    let showResourceMonitor = false;
+    let workerReady = false;
+    
+    // 创建 Web Worker
+    function createAIWorker() {
+      // 获取gobang-ai.js的绝对路径
+      const scripts = document.getElementsByTagName('script');
+      let scriptPath = 'gobang-ai.js';
+      
+      for (let i = 0; i < scripts.length; i++) {
+        if (scripts[i].src && scripts[i].src.includes('gobang-ai.js')) {
+          scriptPath = scripts[i].src;
+          break;
+        }
+      }
+      
+      console.log('Worker script path:', scriptPath);
+      
+      const workerCode = `
+        let progressCallback = null;
+        let totalNodes = 0;
+        let currentPhase = 0;
+        let aiLoaded = false;
+        
+        self.onmessage = function(e) {
+          if (e.data.type === 'init') {
+            try {
+              importScripts(e.data.aiScript);
+              aiLoaded = true;
+              self.postMessage({ type: 'ready' });
+              console.log('AI script loaded successfully');
+            } catch (err) {
+              console.error('Failed to load AI script:', err);
+              self.postMessage({ type: 'error', data: err.message });
+            }
+          } else if (e.data.type === 'compute') {
+            if (!aiLoaded) {
+              self.postMessage({ type: 'error', data: 'AI not loaded yet' });
+              return;
+            }
+            
+            try {
+              const boardData = e.data.board;
+              const depth = e.data.depth;
+              
+              const board = Board.fromJSON(boardData);
+              
+              // 设置进度回调
+              setProgressCallback((progress) => {
+                self.postMessage({ type: 'progress', data: progress });
+              });
+              
+              // 执行AI计算
+              const result = minmax(board, board.role, depth, true);
+              
+              // 发送结果
+              self.postMessage({
+                type: 'result',
+                data: {
+                  score: result[0],
+                  move: result[1],
+                  path: result[2],
+                  cacheHits: cache_hits.hit,
+                  cacheTotal: cache_hits.total,
+                  searchNodes: cache_hits.search
+                }
+              });
+            } catch (err) {
+              console.error('Compute error:', err);
+              self.postMessage({ type: 'error', data: err.message });
+            }
+          }
+        };
+      `;
+      
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      const worker = new Worker(workerUrl);
+      
+      return { worker, scriptPath };
+    }
+    
+    function initAIWorker() {
+      if (aiWorker) {
+        aiWorker.terminate();
+      }
+      
+      workerReady = false;
+      const { worker, scriptPath } = createAIWorker();
+      aiWorker = worker;
+      
+      aiWorker.onmessage = function(e) {
+        if (e.data.type === 'ready') {
+          workerReady = true;
+          console.log('Worker is ready');
+        } else if (e.data.type === 'progress') {
+          updateProgressFromWorker(e.data.data);
+        } else if (e.data.type === 'result') {
+          handleAIResult(e.data.data);
+        } else if (e.data.type === 'error') {
+          console.error('Worker error:', e.data.data);
+          stopProgress();
+          gameState.loading = false;
+          renderBoard();
+          alert('AI计算出错: ' + e.data.data);
+        }
+      };
+      
+      aiWorker.onerror = function(error) {
+        console.error('Worker error:', error);
+        stopProgress();
+        gameState.loading = false;
+        renderBoard();
+      };
+      
+      // 初始化Worker
+      aiWorker.postMessage({
+        type: 'init',
+        aiScript: scriptPath
+      });
+    }
+    
+    function updateProgressFromWorker(data) {
+      const phaseNames = ['VCT攻击搜索', '主搜索', '反向VCT搜索', '完成'];
+      const phasePercent = [25, 50, 25, 0];
+      
+      let totalPercent = 0;
+      for (let i = 0; i < data.phase - 1; i++) {
+        totalPercent += phasePercent[i];
+      }
+      
+      const phaseProgress = Math.min(data.current / Math.max(data.total, 1), 1);
+      totalPercent += phasePercent[data.phase - 1] * phaseProgress;
+      
+      document.getElementById('progress-fill').style.width = totalPercent + '%';
+      document.getElementById('progress-text').textContent = Math.round(totalPercent) + '%';
+      document.getElementById('phase-indicator').textContent = 
+        `阶段 ${data.phase}/4: ${phaseNames[data.phase - 1] || '计算中'}`;
+      
+      if (showResourceMonitor) {
+        const elapsed = Date.now() - thinkStartTime;
+        document.getElementById('res-time').textContent = elapsed + 'ms';
+        document.getElementById('res-nodes').textContent = data.nodes || 0;
+        document.getElementById('res-cache').textContent = `${data.cacheHits}/${data.cacheTotal}`;
+        
+        if (performance && performance.memory) {
+          const used = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+          document.getElementById('res-memory').textContent = used + ' MB';
+        }
+      }
+    }
+    
+    function handleAIResult(data) {
+      gameState.score = data.score;
+      gameState.path = data.path;
+      
+      if (data.move) {
+        applyMove(data.move[0], data.move[1]);
+      }
+      
+      gameState.loading = false;
+      stopProgress();
+      renderBoard();
+      
+      // 如果是AI互博模式，继续下一步
+      if (gameState.aiVsAi && !gameState.winner && gameState.status === STATUS.GAMING) {
+        scheduleNextAIMove();
+      }
+    }
+    
+    function scheduleNextAIMove() {
+      setTimeout(() => {
+        if (gameState.aiVsAi && !gameState.winner && gameState.status === STATUS.GAMING) {
+          requestAIMove();
+        }
+      }, 500);
+    }
+    
+    // 请求AI计算（通过Worker）
+    function requestAIMove() {
+      if (!aiWorker || !workerReady) {
+        console.log('Worker not ready, reinitializing...');
+        initAIWorker();
+        // 等待Worker准备好后再请求
+        setTimeout(() => {
+          if (workerReady) {
+            requestAIMove();
+          } else {
+            console.error('Worker failed to initialize');
+            gameState.loading = false;
+            renderBoard();
+          }
+        }, 100);
+        return;
+      }
+      
+      gameState.loading = true;
+      startProgress();
+      renderBoard();
+      
+      // 发送计算请求到Worker
+      aiWorker.postMessage({
+        type: 'compute',
+        board: gameBoard.toJSON(),
+        depth: gameState.depth
+      });
+    }
     
     function initBoard() {
-      const container = document.querySelector('.game-wrapper');
       const maxWidth = Math.min(window.innerWidth - 60, 450);
       cellSize = Math.floor(maxWidth / BOARD_SIZE);
       
@@ -632,6 +1006,30 @@
     
     function isStarPoint(x, y) {
       return STAR_POINTS.some(p => p[0] === x && p[1] === y);
+    }
+    
+    function startProgress() {
+      thinkStartTime = Date.now();
+      document.getElementById('progress-container').classList.add('show');
+      document.getElementById('progress-fill').style.width = '0%';
+      document.getElementById('progress-text').textContent = '0%';
+      document.getElementById('phase-indicator').textContent = '阶段 1/4: 初始化';
+      
+      if (showResourceMonitor) {
+        document.getElementById('resource-monitor').classList.add('show');
+      }
+    }
+    
+    function stopProgress() {
+      document.getElementById('progress-fill').style.width = '100%';
+      document.getElementById('progress-text').textContent = '100%';
+      
+      setTimeout(() => {
+        document.getElementById('progress-container').classList.remove('show');
+        if (!showResourceMonitor) {
+          document.getElementById('resource-monitor').classList.remove('show');
+        }
+      }, 300);
     }
     
     function renderBoard() {
@@ -655,7 +1053,7 @@
           cellEl.className = cellClass;
           cellEl.style.width = cellSize + 'px';
           cellEl.style.height = cellSize + 'px';
-          cellEl.onclick = () => playerMove(i, j);
+          cellEl.onclick = () => handlePlayerMove(i, j);
           
           if (gameBoard) {
             const cellValue = gameBoard.board[i][j];
@@ -691,13 +1089,6 @@
         boardEl.appendChild(rowEl);
       }
       
-      if (gameState.loading) {
-        const loadingEl = document.createElement('div');
-        loadingEl.className = 'loading';
-        loadingEl.innerHTML = '<div class="loading-text">AI 思考中...</div>';
-        boardEl.appendChild(loadingEl);
-      }
-      
       updateGameInfo();
       updateControls();
       updateDebugInfo();
@@ -708,22 +1099,22 @@
       
       if (gameState.winner) {
         infoEl.className = 'game-info winner';
-        const winnerText = gameState.winner === 1 ? '⚫ 黑棋' : '⚪ 白棋';
-        infoEl.textContent = `🎉 ${winnerText} 获胜！`;
+        const winnerText = gameState.winner === 1 ? '黑 棋' : '白 棋';
+        infoEl.textContent = `恭 喜！${winnerText} 获 胜！`;
       } else if (gameState.status === STATUS.GAMING) {
         infoEl.className = 'game-info';
         if (gameState.aiVsAi) {
-          infoEl.textContent = '🤖 AI 互博进行中...';
+          infoEl.textContent = 'AI 演 武 进 行 中...';
         } else {
-          const playerText = gameState.currentPlayer === 1 ? '⚫ 黑棋' : '⚪ 白棋';
-          infoEl.textContent = `${playerText} 的回合`;
+          const playerText = gameState.currentPlayer === 1 ? '黑 棋' : '白 棋';
+          infoEl.textContent = `${playerText} 轮 到 你 了`;
         }
       } else {
         infoEl.className = 'game-info';
         if (currentMode === 'pvp-ai') {
-          infoEl.textContent = '点击"开始游戏"开始对战';
+          infoEl.textContent = '请点击"开始"进行对弈';
         } else {
-          infoEl.textContent = '点击"开始游戏"观看 AI 互博';
+          infoEl.textContent = '请点击"开始"观看AI演武';
         }
       }
     }
@@ -739,7 +1130,6 @@
       const btnUndo = document.getElementById('btn-undo');
       const btnEnd = document.getElementById('btn-end');
       
-      btnStart.textContent = isPvpAi ? '▶️ 开始游戏' : '▶️ 开始 AI 互博';
       btnStart.style.display = isAiVsAi ? 'none' : 'inline-block';
       btnStart.disabled = gameState.loading || isGaming;
       
@@ -782,6 +1172,7 @@
       
       stopAiVsAi();
       gameState.status = STATUS.IDLE;
+      gameState.aiVsAi = false;
       currentMode = mode;
       
       document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -791,11 +1182,56 @@
       renderBoard();
     }
     
+    // 覆盖gobang-ai.js中的函数，使用Worker
     function handleStart() {
       if (currentMode === 'pvp-ai') {
-        startGame();
+        startGameWithWorker();
       } else {
-        startAiVsAi();
+        startAiVsAiWithWorker();
+      }
+    }
+    
+    function startGameWithWorker() {
+      gameBoard = new Board(board_size, 1);
+      gameState.status = STATUS.GAMING;
+      gameState.currentPlayer = 1;
+      gameState.winner = null;
+      gameState.history = [];
+      gameState.score = 0;
+      gameState.path = [];
+      gameState.aiVsAi = false;
+      renderBoard();
+
+      if (gameState.aiFirst) {
+        requestAIMove();
+      }
+    }
+    
+    function startAiVsAiWithWorker() {
+      gameBoard = new Board(board_size, 1);
+      gameState.status = STATUS.GAMING;
+      gameState.currentPlayer = 1;
+      gameState.winner = null;
+      gameState.history = [];
+      gameState.score = 0;
+      gameState.path = [];
+      gameState.aiVsAi = true;
+      renderBoard();
+      
+      // 开始第一步AI计算
+      requestAIMove();
+    }
+    
+    function handlePlayerMove(x, y) {
+      if (gameState.aiVsAi) return;
+      if (gameState.status !== STATUS.GAMING || gameState.loading) return;
+      if (gameBoard.board[x][y] !== 0) return;
+      
+      applyMove(x, y);
+      renderBoard();
+
+      if (!gameState.winner && gameState.status === STATUS.GAMING) {
+        requestAIMove();
       }
     }
     
@@ -819,6 +1255,7 @@
       document.getElementById('setting-depth').value = gameState.depth;
       document.getElementById('setting-ai-first').checked = gameState.aiFirst;
       document.getElementById('setting-show-index').checked = gameState.showIndex;
+      document.getElementById('setting-show-resource').checked = showResourceMonitor;
       document.getElementById('settings-modal').classList.add('show');
     }
     
@@ -830,6 +1267,14 @@
       gameState.depth = Number(document.getElementById('setting-depth').value);
       gameState.aiFirst = document.getElementById('setting-ai-first').checked;
       gameState.showIndex = document.getElementById('setting-show-index').checked;
+      showResourceMonitor = document.getElementById('setting-show-resource').checked;
+      
+      if (showResourceMonitor) {
+        document.getElementById('resource-monitor').classList.add('show');
+      } else if (!gameState.loading) {
+        document.getElementById('resource-monitor').classList.remove('show');
+      }
+      
       closeSettings();
       renderBoard();
     }
@@ -858,6 +1303,7 @@
     window.onload = () => {
       gameState.aiFirst = false;
       initBoard();
+      initAIWorker();
     };
   </script>
 </body>

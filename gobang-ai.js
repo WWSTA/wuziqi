@@ -994,6 +994,30 @@ class Board {
   toString() {
     return this.board.map(row => row.join('')).join('');
   }
+
+  toJSON() {
+    return {
+      size: this.size,
+      board: this.board,
+      firstRole: this.firstRole,
+      role: this.role,
+      history: this.history
+    };
+  }
+
+  static fromJSON(data) {
+    const board = new Board(data.size, data.firstRole);
+    board.board = data.board;
+    board.role = data.role;
+    board.history = data.history;
+    board.zobrist = new ZobristCache(data.size);
+    board.evaluator = new Evaluate(data.size);
+    for (const move of data.history) {
+      board.zobrist.togglePiece(move.x, move.y, move.role);
+      board.evaluator.move(move.x, move.y, move.role);
+    }
+    return board;
+  }
 }
 
 // ===== 极小极大搜索 =====
@@ -1007,9 +1031,39 @@ const cache_hits = {
 const onlyThreeThreshold = 6;
 const cache = new Cache();
 
+let progressCallback = null;
+let totalNodes = 0;
+let currentPhase = 0;
+let totalPhases = 0;
+
+function setProgressCallback(callback) {
+  progressCallback = callback;
+}
+
+function reportProgress(phase, current, total) {
+  if (progressCallback) {
+    progressCallback({
+      phase: phase,
+      current: current,
+      total: total,
+      nodes: cache_hits.search,
+      cacheHits: cache_hits.hit,
+      cacheTotal: cache_hits.total
+    });
+  }
+}
+
 function factory(onlyThree = false, onlyFour = false) {
   function helper(board, role, depth, cDepth = 0, path = [], alpha = -MAX, beta = MAX) {
     cache_hits.search++;
+    
+    if (cDepth === 0 && progressCallback) {
+      totalNodes++;
+      if (totalNodes % 100 === 0) {
+        reportProgress(currentPhase, totalNodes, totalPhases);
+      }
+    }
+    
     if (cDepth >= depth || board.isGameOver()) {
       return [board.evaluate(role), null, [...path]];
     }
@@ -1087,25 +1141,44 @@ const vct = factory(true);
 const vcf = factory(false, true);
 
 function minmax(board, role, depth = 4, enableVCT = true) {
+  totalNodes = 0;
+  totalPhases = enableVCT ? 4 : 1;
+  
   if (enableVCT) {
+    currentPhase = 1;
+    reportProgress(1, 0, 100);
     const vctDepth = depth + 8;
     let [value, move, bestPath] = vct(board, role, vctDepth);
     if (value >= FIVE) {
+      reportProgress(4, 100, 100);
       return [value, move, bestPath];
     }
+    
+    currentPhase = 2;
+    totalNodes = 0;
+    reportProgress(2, 0, 100);
     [value, move, bestPath] = _minmax(board, role, depth);
+    
+    currentPhase = 3;
+    totalNodes = 0;
+    reportProgress(3, 0, 100);
     board.put(move[0], move[1], role);
     let [value2, move2, bestPath2] = vct(board.reverse(), role, vctDepth)
     board.undo();
     if (value < FIVE && value2 === FIVE && bestPath2.length > bestPath.length) {
       let [value3, move3, bestPath3] = vct(board.reverse(), role, vctDepth)
       if (bestPath2.length <= bestPath3.length) {
+        reportProgress(4, 100, 100);
         return [value, move2, bestPath2];
       }
     }
+    reportProgress(4, 100, 100);
     return [value, move, bestPath];
   } else {
-    return _minmax(board, role, depth);
+    reportProgress(1, 0, 100);
+    const result = _minmax(board, role, depth);
+    reportProgress(1, 100, 100);
+    return result;
   }
 }
 
@@ -1145,10 +1218,18 @@ function startGame() {
   gameState.aiVsAi = false;
 
   if (gameState.aiFirst) {
-    const aiMove = getAIMove();
-    if (aiMove) {
-      applyMove(aiMove[0], aiMove[1]);
-    }
+    gameState.loading = true;
+    renderBoard();
+    if (typeof startProgress !== 'undefined') startProgress();
+    setTimeout(() => {
+      const aiMove = getAIMove();
+      if (aiMove) {
+        applyMove(aiMove[0], aiMove[1]);
+      }
+      gameState.loading = false;
+      if (typeof stopProgress !== 'undefined') stopProgress();
+      renderBoard();
+    }, 50);
   }
   renderBoard();
 }
@@ -1164,7 +1245,7 @@ function startAiVsAi() {
   gameState.aiVsAi = true;
   renderBoard();
   
-  gameState.aiVsAiInterval = setInterval(() => {
+  const doAiMove = () => {
     if (gameState.winner || gameState.status !== STATUS.GAMING) {
       stopAiVsAi();
       return;
@@ -1172,6 +1253,7 @@ function startAiVsAi() {
     
     gameState.loading = true;
     renderBoard();
+    if (typeof startProgress !== 'undefined') startProgress();
     
     setTimeout(() => {
       const aiMove = getAIMove();
@@ -1179,13 +1261,17 @@ function startAiVsAi() {
         applyMove(aiMove[0], aiMove[1]);
       }
       gameState.loading = false;
+      if (typeof stopProgress !== 'undefined') stopProgress();
       renderBoard();
       
       if (gameState.winner || gameState.status !== STATUS.GAMING) {
         stopAiVsAi();
       }
     }, 100);
-  }, 500);
+  };
+  
+  doAiMove();
+  gameState.aiVsAiInterval = setInterval(doAiMove, 500);
 }
 
 function stopAiVsAi() {
@@ -1225,12 +1311,14 @@ function playerMove(x, y) {
   if (!gameState.winner && gameState.status === STATUS.GAMING) {
     gameState.loading = true;
     renderBoard();
+    if (typeof startProgress !== 'undefined') startProgress();
     setTimeout(() => {
       const aiMove = getAIMove();
       if (aiMove) {
         applyMove(aiMove[0], aiMove[1]);
       }
       gameState.loading = false;
+      if (typeof stopProgress !== 'undefined') stopProgress();
       renderBoard();
     }, 50);
   }
@@ -1278,4 +1366,14 @@ function setShowIndex(checked) {
 function setDebug(checked) {
   gameState.debug = checked;
   renderBoard();
+}
+
+// 导出供 Worker 使用
+if (typeof self !== 'undefined' && typeof importScripts !== 'function') {
+  self.Board = Board;
+  self.minmax = minmax;
+  self.setProgressCallback = setProgressCallback;
+  self.cache_hits = cache_hits;
+  self.shapePerformance = shapePerformance;
+  self.FIVE = FIVE;
 }
