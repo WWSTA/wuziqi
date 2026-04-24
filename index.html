@@ -202,6 +202,25 @@
       text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
     }
     
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #8b5a2b;
+    }
+    
+    .time-estimate {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .time-estimate-icon {
+      font-size: 16px;
+    }
+    
     .phase-indicator {
       text-align: center;
       font-size: 14px;
@@ -641,7 +660,13 @@
           <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
           <span id="progress-text" class="progress-text">0%</span>
         </div>
-        <div class="phase-indicator" id="phase-indicator">阶段 1/4</div>
+        <div class="progress-info">
+          <div class="time-estimate">
+            <span class="time-estimate-icon">⏱</span>
+            <span>预估剩余: <span id="time-remaining">计算中...</span></span>
+          </div>
+          <div id="phase-indicator">阶段 1/4</div>
+        </div>
       </div>
       
       <div class="board-container">
@@ -788,9 +813,75 @@
     let showResourceMonitor = false;
     let workerReady = false;
     
+    // 时间预估相关变量
+    let estimatedTotalTime = 0;
+    let timeEstimateInterval = null;
+    let lastProgressUpdate = 0;
+    let progressHistory = [];
+    
+    // 根据难度和棋盘状态预估计算时间（毫秒）
+    function estimateThinkTime(depth, moveCount) {
+      // 基础时间（根据深度）
+      const baseTimeMap = {
+        2: 50,    // 2层：约50ms
+        4: 200,   // 4层：约200ms
+        6: 800,   // 6层：约800ms
+        8: 3000   // 8层：约3秒
+      };
+      
+      let baseTime = baseTimeMap[depth] || 200;
+      
+      // 棋子越多，计算越快（因为可选位置减少）
+      // 开局时较慢，中局最快，残局稍慢
+      let moveFactor = 1.0;
+      if (moveCount < 4) {
+        moveFactor = 1.3; // 开局稍慢
+      } else if (moveCount < 20) {
+        moveFactor = 0.8; // 中局较快
+      } else if (moveCount < 40) {
+        moveFactor = 0.6; // 后局更快
+      } else {
+        moveFactor = 0.4; // 残局最快
+      }
+      
+      // VCT搜索会增加时间
+      const vctFactor = 1.5;
+      
+      return Math.round(baseTime * moveFactor * vctFactor);
+    }
+    
+    // 格式化时间显示
+    function formatTime(ms) {
+      if (ms < 1000) {
+        return ms + '毫秒';
+      } else if (ms < 60000) {
+        return (ms / 1000).toFixed(1) + '秒';
+      } else {
+        const minutes = Math.floor(ms / 60000);
+        const seconds = Math.round((ms % 60000) / 1000);
+        return minutes + '分' + seconds + '秒';
+      }
+    }
+    
+    // 更新剩余时间预估
+    function updateTimeEstimate(progress) {
+      const elapsed = Date.now() - thinkStartTime;
+      
+      if (progress > 0 && elapsed > 100) {
+        // 根据当前进度和已用时间预估剩余时间
+        const estimatedTotal = elapsed / progress;
+        const remaining = estimatedTotal - elapsed;
+        
+        if (remaining > 0) {
+          document.getElementById('time-remaining').textContent = formatTime(Math.round(remaining));
+        } else {
+          document.getElementById('time-remaining').textContent = '即将完成...';
+        }
+      }
+    }
+    
     // 创建 Web Worker
     function createAIWorker() {
-      // 获取gobang-ai.js的绝对路径
       const scripts = document.getElementsByTagName('script');
       let scriptPath = 'gobang-ai.js';
       
@@ -804,9 +895,6 @@
       console.log('Worker script path:', scriptPath);
       
       const workerCode = `
-        let progressCallback = null;
-        let totalNodes = 0;
-        let currentPhase = 0;
         let aiLoaded = false;
         
         self.onmessage = function(e) {
@@ -832,15 +920,12 @@
               
               const board = Board.fromJSON(boardData);
               
-              // 设置进度回调
               setProgressCallback((progress) => {
                 self.postMessage({ type: 'progress', data: progress });
               });
               
-              // 执行AI计算
               const result = minmax(board, board.role, depth, true);
               
-              // 发送结果
               self.postMessage({
                 type: 'result',
                 data: {
@@ -900,7 +985,6 @@
         renderBoard();
       };
       
-      // 初始化Worker
       aiWorker.postMessage({
         type: 'init',
         aiScript: scriptPath
@@ -923,6 +1007,9 @@
       document.getElementById('progress-text').textContent = Math.round(totalPercent) + '%';
       document.getElementById('phase-indicator').textContent = 
         `阶段 ${data.phase}/4: ${phaseNames[data.phase - 1] || '计算中'}`;
+      
+      // 更新时间预估
+      updateTimeEstimate(totalPercent / 100);
       
       if (showResourceMonitor) {
         const elapsed = Date.now() - thinkStartTime;
@@ -949,7 +1036,6 @@
       stopProgress();
       renderBoard();
       
-      // 如果是AI互博模式，继续下一步
       if (gameState.aiVsAi && !gameState.winner && gameState.status === STATUS.GAMING) {
         scheduleNextAIMove();
       }
@@ -963,12 +1049,10 @@
       }, 500);
     }
     
-    // 请求AI计算（通过Worker）
     function requestAIMove() {
       if (!aiWorker || !workerReady) {
         console.log('Worker not ready, reinitializing...');
         initAIWorker();
-        // 等待Worker准备好后再请求
         setTimeout(() => {
           if (workerReady) {
             requestAIMove();
@@ -977,7 +1061,7 @@
             gameState.loading = false;
             renderBoard();
           }
-        }, 100);
+        }, 200);
         return;
       }
       
@@ -985,7 +1069,6 @@
       startProgress();
       renderBoard();
       
-      // 发送计算请求到Worker
       aiWorker.postMessage({
         type: 'compute',
         board: gameBoard.toJSON(),
@@ -1010,19 +1093,43 @@
     
     function startProgress() {
       thinkStartTime = Date.now();
+      progressHistory = [];
+      
+      // 预估总时间
+      const moveCount = gameState.history.length;
+      estimatedTotalTime = estimateThinkTime(gameState.depth, moveCount);
+      
       document.getElementById('progress-container').classList.add('show');
       document.getElementById('progress-fill').style.width = '0%';
       document.getElementById('progress-text').textContent = '0%';
       document.getElementById('phase-indicator').textContent = '阶段 1/4: 初始化';
+      document.getElementById('time-remaining').textContent = '预估 ' + formatTime(estimatedTotalTime);
       
       if (showResourceMonitor) {
         document.getElementById('resource-monitor').classList.add('show');
       }
+      
+      // 启动时间更新定时器
+      if (timeEstimateInterval) {
+        clearInterval(timeEstimateInterval);
+      }
+      timeEstimateInterval = setInterval(() => {
+        if (gameState.loading) {
+          const elapsed = Date.now() - thinkStartTime;
+          document.getElementById('res-time').textContent = elapsed + 'ms';
+        }
+      }, 100);
     }
     
     function stopProgress() {
       document.getElementById('progress-fill').style.width = '100%';
       document.getElementById('progress-text').textContent = '100%';
+      document.getElementById('time-remaining').textContent = '已完成';
+      
+      if (timeEstimateInterval) {
+        clearInterval(timeEstimateInterval);
+        timeEstimateInterval = null;
+      }
       
       setTimeout(() => {
         document.getElementById('progress-container').classList.remove('show');
@@ -1182,7 +1289,6 @@
       renderBoard();
     }
     
-    // 覆盖gobang-ai.js中的函数，使用Worker
     function handleStart() {
       if (currentMode === 'pvp-ai') {
         startGameWithWorker();
@@ -1218,7 +1324,6 @@
       gameState.aiVsAi = true;
       renderBoard();
       
-      // 开始第一步AI计算
       requestAIMove();
     }
     
