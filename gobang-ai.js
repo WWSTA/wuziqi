@@ -1035,12 +1035,17 @@ let progressCallback = null;
 let totalNodes = 0;
 let currentPhase = 0;
 let totalPhases = 0;
+let currentSearchDepth = 0;
+let maxSearchDepth = 0;
+let currentIterDepth = 0;
+let isVCTSearch = false;
+let userSetDepth = 0;
 
 function setProgressCallback(callback) {
   progressCallback = callback;
 }
 
-function reportProgress(phase, current, total) {
+function reportProgress(phase, current, total, depth = 0, iterDepth = 0) {
   if (progressCallback) {
     progressCallback({
       phase: phase,
@@ -1048,20 +1053,28 @@ function reportProgress(phase, current, total) {
       total: total,
       nodes: cache_hits.search,
       cacheHits: cache_hits.hit,
-      cacheTotal: cache_hits.total
+      cacheTotal: cache_hits.total,
+      currentDepth: depth,
+      iterDepth: iterDepth,
+      maxDepth: userSetDepth,
+      isVCT: isVCTSearch
     });
   }
 }
 
 function factory(onlyThree = false, onlyFour = false) {
+  let reportCounter = 0;
+  
   function helper(board, role, depth, cDepth = 0, path = [], alpha = -MAX, beta = MAX) {
     cache_hits.search++;
     
-    if (cDepth === 0 && progressCallback) {
-      totalNodes++;
-      if (totalNodes % 100 === 0) {
-        reportProgress(currentPhase, totalNodes, totalPhases);
-      }
+    // 更新当前深度
+    currentSearchDepth = cDepth + 1;
+    
+    // 每30次搜索报告一次进度（在所有层级）
+    reportCounter++;
+    if (progressCallback && reportCounter % 30 === 0) {
+      reportProgress(currentPhase, totalNodes, totalPhases, currentSearchDepth, currentIterDepth);
     }
     
     if (cDepth >= depth || board.isGameOver()) {
@@ -1088,6 +1101,7 @@ function factory(onlyThree = false, onlyFour = false) {
     }
     for (let d = cDepth + 1; d <= depth; d += 1) {
       if (d % 2 !== 0) continue;
+      currentIterDepth = d;
       let breakAll = false;
       for (let i = 0; i < points.length; i++) {
         const point = points[i];
@@ -1143,41 +1157,51 @@ const vcf = factory(false, true);
 function minmax(board, role, depth = 4, enableVCT = true) {
   totalNodes = 0;
   totalPhases = enableVCT ? 4 : 1;
+  maxSearchDepth = depth;
+  currentSearchDepth = 0;
+  currentIterDepth = 0;
+  userSetDepth = depth;
   
   if (enableVCT) {
     currentPhase = 1;
-    reportProgress(1, 0, 100);
+    isVCTSearch = true;
+    reportProgress(1, 0, 100, 0, 0);
     const vctDepth = depth + 8;
     let [value, move, bestPath] = vct(board, role, vctDepth);
     if (value >= FIVE) {
-      reportProgress(4, 100, 100);
+      isVCTSearch = false;
+      reportProgress(4, 100, 100, depth, depth);
       return [value, move, bestPath];
     }
     
     currentPhase = 2;
+    isVCTSearch = false;
     totalNodes = 0;
-    reportProgress(2, 0, 100);
+    reportProgress(2, 0, 100, 0, 0);
     [value, move, bestPath] = _minmax(board, role, depth);
     
     currentPhase = 3;
+    isVCTSearch = true;
     totalNodes = 0;
-    reportProgress(3, 0, 100);
+    reportProgress(3, 0, 100, 0, 0);
     board.put(move[0], move[1], role);
     let [value2, move2, bestPath2] = vct(board.reverse(), role, vctDepth)
     board.undo();
     if (value < FIVE && value2 === FIVE && bestPath2.length > bestPath.length) {
       let [value3, move3, bestPath3] = vct(board.reverse(), role, vctDepth)
       if (bestPath2.length <= bestPath3.length) {
-        reportProgress(4, 100, 100);
+        isVCTSearch = false;
+        reportProgress(4, 100, 100, depth, depth);
         return [value, move2, bestPath2];
       }
     }
-    reportProgress(4, 100, 100);
+    isVCTSearch = false;
+    reportProgress(4, 100, 100, depth, depth);
     return [value, move, bestPath];
   } else {
-    reportProgress(1, 0, 100);
+    reportProgress(1, 0, 100, 0, 0);
     const result = _minmax(board, role, depth);
-    reportProgress(1, 100, 100);
+    reportProgress(1, 100, 100, depth, depth);
     return result;
   }
 }

@@ -681,12 +681,24 @@
           <span id="res-time">0ms</span>
         </div>
         <div class="resource-row">
+          <span class="resource-label">搜索深度:</span>
+          <span id="res-depth">0 / 0 层</span>
+        </div>
+        <div class="resource-row">
+          <span class="resource-label">迭代深度:</span>
+          <span id="res-iter-depth">0 层</span>
+        </div>
+        <div class="resource-row">
           <span class="resource-label">搜索节点:</span>
           <span id="res-nodes">0</span>
         </div>
         <div class="resource-row">
+          <span class="resource-label">节点速度:</span>
+          <span id="res-speed">0 节点/秒</span>
+        </div>
+        <div class="resource-row">
           <span class="resource-label">缓存命中:</span>
-          <span id="res-cache">0/0</span>
+          <span id="res-cache">0/0 (0%)</span>
         </div>
         <div class="resource-row">
           <span class="resource-label">内存占用:</span>
@@ -814,41 +826,9 @@
     let workerReady = false;
     
     // 时间预估相关变量
-    let estimatedTotalTime = 0;
     let timeEstimateInterval = null;
     let lastProgressUpdate = 0;
     let progressHistory = [];
-    
-    // 根据难度和棋盘状态预估计算时间（毫秒）
-    function estimateThinkTime(depth, moveCount) {
-      // 基础时间（根据深度）
-      const baseTimeMap = {
-        2: 50,    // 2层：约50ms
-        4: 200,   // 4层：约200ms
-        6: 800,   // 6层：约800ms
-        8: 3000   // 8层：约3秒
-      };
-      
-      let baseTime = baseTimeMap[depth] || 200;
-      
-      // 棋子越多，计算越快（因为可选位置减少）
-      // 开局时较慢，中局最快，残局稍慢
-      let moveFactor = 1.0;
-      if (moveCount < 4) {
-        moveFactor = 1.3; // 开局稍慢
-      } else if (moveCount < 20) {
-        moveFactor = 0.8; // 中局较快
-      } else if (moveCount < 40) {
-        moveFactor = 0.6; // 后局更快
-      } else {
-        moveFactor = 0.4; // 残局最快
-      }
-      
-      // VCT搜索会增加时间
-      const vctFactor = 1.5;
-      
-      return Math.round(baseTime * moveFactor * vctFactor);
-    }
     
     // 格式化时间显示
     function formatTime(ms) {
@@ -863,17 +843,37 @@
       }
     }
     
-    // 更新剩余时间预估
-    function updateTimeEstimate(progress) {
-      const elapsed = Date.now() - thinkStartTime;
+    // 预估总节点数（基于深度和棋盘状态）
+    function estimateTotalNodes(depth, moveCount) {
+      // 每层的分支因子（近似值）
+      const branchFactors = {
+        2: 15,
+        4: 18,
+        6: 20,
+        8: 22
+      };
       
-      if (progress > 0 && elapsed > 100) {
-        // 根据当前进度和已用时间预估剩余时间
-        const estimatedTotal = elapsed / progress;
-        const remaining = estimatedTotal - elapsed;
-        
-        if (remaining > 0) {
-          document.getElementById('time-remaining').textContent = formatTime(Math.round(remaining));
+      const bf = branchFactors[depth] || 20;
+      
+      // 棋子越多，分支因子越小
+      let adjustedBf = bf;
+      if (moveCount > 10) adjustedBf *= 0.8;
+      if (moveCount > 30) adjustedBf *= 0.7;
+      if (moveCount > 50) adjustedBf *= 0.6;
+      
+      // 估算总节点数（考虑剪枝效果，实际约为理论值的30%）
+      const totalNodes = Math.pow(adjustedBf, depth) * 0.3;
+      
+      return Math.round(totalNodes);
+    }
+    
+    // 更新剩余时间预估（基于节点速度）
+    function updateTimeEstimate(nodesSearched, nodesPerSecond, totalNodesEstimated) {
+      if (nodesPerSecond > 0) {
+        const remainingNodes = totalNodesEstimated - nodesSearched;
+        if (remainingNodes > 0) {
+          const remainingMs = (remainingNodes / nodesPerSecond) * 1000;
+          document.getElementById('time-remaining').textContent = formatTime(Math.round(remainingMs));
         } else {
           document.getElementById('time-remaining').textContent = '即将完成...';
         }
@@ -1005,17 +1005,42 @@
       
       document.getElementById('progress-fill').style.width = totalPercent + '%';
       document.getElementById('progress-text').textContent = Math.round(totalPercent) + '%';
-      document.getElementById('phase-indicator').textContent = 
-        `阶段 ${data.phase}/4: ${phaseNames[data.phase - 1] || '计算中'}`;
       
-      // 更新时间预估
-      updateTimeEstimate(totalPercent / 100);
+      // 显示阶段信息，如果是VCT搜索则标注
+      const phaseText = phaseNames[data.phase - 1] || '计算中';
+      const vctIndicator = data.isVCT ? ' [VCT]' : '';
+      document.getElementById('phase-indicator').textContent = 
+        `阶段 ${data.phase}/4: ${phaseText}${vctIndicator}`;
       
       if (showResourceMonitor) {
         const elapsed = Date.now() - thinkStartTime;
+        const nodes = data.nodes || 0;
+        const cacheHits = data.cacheHits || 0;
+        const cacheTotal = data.cacheTotal || 0;
+        
+        // 计算节点速度（节点/秒）
+        const nodesPerSecond = elapsed > 0 ? Math.round(nodes / (elapsed / 1000)) : 0;
+        
+        // 计算缓存命中率
+        const cacheHitRate = cacheTotal > 0 ? ((cacheHits / cacheTotal) * 100).toFixed(1) : 0;
+        
+        // 更新显示
         document.getElementById('res-time').textContent = elapsed + 'ms';
-        document.getElementById('res-nodes').textContent = data.nodes || 0;
-        document.getElementById('res-cache').textContent = `${data.cacheHits}/${data.cacheTotal}`;
+        document.getElementById('res-nodes').textContent = nodes.toLocaleString();
+        document.getElementById('res-speed').textContent = nodesPerSecond.toLocaleString() + ' 节点/秒';
+        document.getElementById('res-cache').textContent = `${cacheHits}/${cacheTotal} (${cacheHitRate}%)`;
+        
+        // 深度显示：如果是VCT搜索，显示实际深度
+        if (data.isVCT) {
+          document.getElementById('res-depth').textContent = `${data.currentDepth || 0} / ${data.maxDepth || 0} 层 (VCT)`;
+        } else {
+          document.getElementById('res-depth').textContent = `${data.currentDepth || 0} / ${data.maxDepth || 0} 层`;
+        }
+        document.getElementById('res-iter-depth').textContent = `${data.iterDepth || 0} 层`;
+        
+        // 基于节点速度预估时间
+        const totalNodesEstimated = estimateTotalNodes(gameState.depth, gameState.history.length);
+        updateTimeEstimate(nodes, nodesPerSecond, totalNodesEstimated);
         
         if (performance && performance.memory) {
           const used = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
@@ -1095,18 +1120,16 @@
       thinkStartTime = Date.now();
       progressHistory = [];
       
-      // 预估总时间
-      const moveCount = gameState.history.length;
-      estimatedTotalTime = estimateThinkTime(gameState.depth, moveCount);
-      
       document.getElementById('progress-container').classList.add('show');
       document.getElementById('progress-fill').style.width = '0%';
       document.getElementById('progress-text').textContent = '0%';
       document.getElementById('phase-indicator').textContent = '阶段 1/4: 初始化';
-      document.getElementById('time-remaining').textContent = '预估 ' + formatTime(estimatedTotalTime);
+      document.getElementById('time-remaining').textContent = '计算中...';
       
       if (showResourceMonitor) {
         document.getElementById('resource-monitor').classList.add('show');
+        document.getElementById('res-speed').textContent = '0 节点/秒';
+        document.getElementById('res-cache').textContent = '0/0 (0%)';
       }
       
       // 启动时间更新定时器
